@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>预测训练器 - 思维实验工具</title>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --success: #06d6a0;
+            --danger: #ef476f;
+            --warning: #ffd166;
+            --dark: #073b4c;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background: #f8f9fa;
+            color: #212529;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: var(--dark);
+            margin: 20px 0;
+        }
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: opacity 0.3s;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        form > div {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .prediction-item {
+            border-left: 4px solid var(--primary);
+            padding-left: 15px;
+            margin-bottom: 15px;
+        }
+        .status-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .status-pending { background: var(--warning); color: var(--dark); }
+        .status-today { background: var(--primary); color: white; }
+        .status-overdue { background: #6c757d; color: white; }
+        .status-success { background: var(--success); color: white; }
+        .status-fail { background: var(--danger); color: white; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            background: #e9ecef;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🔮 预测训练器</h1>
+        <p>记录你的预测，验证判断能力</p>
+    </header>
+
+    <section class="card">
+        <form id="prediction-form">
+            <div>
+                <label for="content">预测内容</label>
+                <textarea id="content" placeholder="描述你预测的事件..." required></textarea>
+            </div>
+            
+            <div>
+                <label for="due-date">截止日期</label>
+                <input type="date" id="due-date" required>
+            </div>
+            
+            <div>
+                <label for="confidence">信心值: <span id="confidence-value">50%</span></label>
+                <input type="range" id="confidence" min="1" max="100" value="50">
+            </div>
+            
+            <button type="submit">保存预测</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>我的预测记录</h2>
+        <div id="predictions-container">
+            <!-- 预测记录动态生成 -->
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>预测能力统计</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div>总预测数</div>
+                <div class="stat-value" id="total-count">0</div>
+            </div>
+            <div class="stat-card">
+                <div>成功率</div>
+                <div class="stat-value" id="success-rate">0%</div>
+            </div>
+            <div class="stat-card">
+                <div>平均信心</div>
+                <div class="stat-value" id="avg-confidence">0%</div>
+            </div>
+            <div class="stat-card">
+                <div>校准指数</div>
+                <div class="stat-value" id="calibration-score">0</div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', () => {
+            // 设置默认日期为明天
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('due-date').valueAsDate = tomorrow;
+            
+            // 加载已有预测
+            loadPredictions();
+            updateStats();
+            
+            // 信心值滑块
+            const confidenceSlider = document.getElementById('confidence');
+            const confidenceValue = document.getElementById('confidence-value');
+            confidenceSlider.addEventListener('input', () => {
+                confidenceValue.textContent = `${confidenceSlider.value}%`;
+            });
+            
+            // 表单提交
+            document.getElementById('prediction-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                savePrediction();
+            });
+        });
+
+        // 保存预测
+        function savePrediction() {
+            const content = document.getElementById('content').value.trim();
+            const dueDate = document.getElementById('due-date').value;
+            const confidence = parseInt(document.getElementById('confidence').value);
+            
+            if (!content) {
+                alert('请输入预测内容');
+                return;
+            }
+            
+            const newPrediction = {
+                id: Date.now(),
+                content,
+                dueDate,
+                confidence,
+                createdAt: new Date().toISOString(),
+                verified: false,
+                result: null,
+                verifiedAt: null
+            };
+            
+            const predictions = getPredictions();
+            predictions.push(newPrediction);
+            localStorage.setItem('predictions', JSON.stringify(predictions));
+            
+            // 重置表单
+            document.getElementById('content').value = '';
+            document.getElementById('confidence').value = '50';
+            document.getElementById('confidence-value').textContent = '50%';
+            
+            // 刷新显示
+            loadPredictions();
+            updateStats();
+            alert('预测已保存！');
+        }
+
+        // 获取所有预测
+        function getPredictions() {
+            return JSON.parse(localStorage.getItem('predictions') || '[]');
+        }
+
+        // 加载预测列表
+        function loadPredictions() {
+            const container = document.getElementById('predictions-container');
+            container.innerHTML = '';
+            
+            const predictions = getPredictions();
+            
+            if (predictions.length === 0) {
+                container.innerHTML = '<p>暂无预测记录</p>';
+                return;
+            }
+            
+            // 按截止日期排序
+            predictions.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+            
+            predictions.forEach(pred => {
+                const predEl = document.createElement('div');
+                predEl.className = 'prediction-item';
+                
+                // 状态判断
+                const today = new Date().toISOString().split('T')[0];
+                const dueDate = pred.dueDate;
+                let status = '';
+                
+                if (pred.verified) {
+                    status = pred.result ? 'success' : 'fail';
+                } else {
+                    if (dueDate === today) {
+                        status = 'today';
+                    } else if (dueDate < today) {
+                        status = 'overdue';
+                    } else {
+                        status = 'pending';
+                    }
+                }
+                
+                const statusText = {
+                    'pending': '未到期',
+                    'today': '今日到期',
+                    'overdue': '已过期',
+                    'success': '预测成功',
+                    'fail': '预测失败'
+                };
+                
+                const statusClass = {
+                    'pending': 'status-pending',
+                    'today': 'status-today',
+                    'overdue': 'status-overdue',
+                    'success': 'status-success',
+                    'fail': 'status-fail'
+                };
+                
+                predEl.innerHTML = `
+                    <h3>${pred.content}</h3>
+                    <p><strong>截止日期:</strong> ${formatDate(dueDate)}</p>
+                    <p><strong>信心值:</strong> ${pred.confidence}%</p>
+                    <p><strong>创建时间:</strong> ${formatDateTime(pred.createdAt)}</p>
+                    <div class="status-tag ${statusClass[status]}">${statusText[status]}</div>
+                    ${!pred.verified && status !== 'pending' ? 
+                        `<div style="margin-top: 10px;">
+                            <button onclick="verifyPrediction(${pred.id}, true)">预测成功</button>
+                            <button onclick="verifyPrediction(${pred.id}, false)" style="background: ${status === 'overdue' ? '#6c757d' : '#ef476f'}">预测失败</button>
+                        </div>` : ''}
+                    ${pred.verified ? `<p><strong>验证时间:</strong> ${formatDateTime(pred.verifiedAt)}</p>` : ''}
+                `;
+                
+                container.appendChild(predEl);
+            });
+        }
+
+        // 验证预测
+        function verifyPrediction(id, result) {
+            const predictions = getPredictions();
+            const index = predictions.findIndex(p => p.id === id);
+            
+            if (index !== -1) {
+                predictions[index].verified = true;
+                predictions[index].result = result;
+                predictions[index].verifiedAt = new Date().toISOString();
+                
+                localStorage.setItem('predictions', JSON.stringify(predictions));
+                loadPredictions();
+                updateStats();
+            }
+        }
+
+        // 更新统计面板
+        function updateStats() {
+            const predictions = getPredictions();
+            const totalCount = predictions.length;
+            
+            // 计算成功率
+            const verified = predictions.filter(p => p.verified);
+            const successCount = verified.filter(p => p.result).length;
+            const successRate = verified.length > 0 ? Math.round((successCount / verified.length) * 100) : 0;
+            
+            // 平均信心值
+            const avgConfidence = predictions.length > 0 ? 
+                Math.round(predictions.reduce((sum, p) => sum + p.confidence, 0) / predictions.length) : 0;
+            
+            // 校准指数 = 成功率 / 平均信心值（仅对已验证预测）
+            let calibrationScore = 'N/A';
+            if (verified.length > 0) {
+                const avgConfidenceVerified = Math.round(verified.reduce((sum, p) => sum + p.confidence, 0) / verified.length);
+                calibrationScore = (successRate / avgConfidenceVerified).toFixed(2);
+            }
+            
+            document.getElementById('total-count').textContent = totalCount;
+            document.getElementById('success-rate').textContent = `${successRate}%`;
+            document.getElementById('avg-confidence').textContent = `${avgConfidence}%`;
+            document.getElementById('calibration-score').textContent = calibrationScore;
+        }
+
+        // 日期格式化辅助函数
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+        }
+        
+        function formatDateTime(dateString) {
+            const date = new Date(dateString);
+            return `${formatDate(dateString)} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html>
