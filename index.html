@@ -339,7 +339,11 @@
         function loadPredictions() {
             const predictionsRef = ref(database, 'predictions');
             onValue(predictionsRef, (snapshot) => {
-                allPredictions = snapshot.val() ? Object.values(snapshot.val()) : [];
+                const newPredictions = snapshot.val() ? Object.values(snapshot.val()) : [];
+                // Deduplicate based on id
+                allPredictions = newPredictions.filter((pred, index, self) =>
+                    index === self.findIndex((p) => p.id === pred.id)
+                );
                 document.getElementById('global-predictions').classList.remove('loading');
                 updateStats();
                 if (currentTab === 'feed') displayPredictions();
@@ -391,8 +395,13 @@
     
             const success = savePrediction(newPrediction);
             if (success) {
-                allPredictions.unshift(newPrediction);
-                myPredictions.unshift(newPrediction);
+                // Only add if not already present
+                if (!allPredictions.some(p => p.id === newPrediction.id)) {
+                    allPredictions.unshift(newPrediction);
+                }
+                if (!myPredictions.some(p => p.id === newPrediction.id)) {
+                    myPredictions.unshift(newPrediction);
+                }
                 localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
                 e.target.reset();
                 setDefaultDate();
@@ -518,8 +527,11 @@
             if (userIndex > -1) prediction.likes.splice(userIndex, 1);
             else prediction.likes.push(currentUser);
             prediction.likesCount = prediction.likes.length;
-            savePrediction(prediction);
-            displayPredictions();
+            // Update Firebase without re-adding
+            const dbRef = ref(database, `predictions/${Object.keys(ref(database, 'predictions')._delegate._path._path)[allPredictions.findIndex(p => p.id === predictionId)]}`);
+            set(dbRef, prediction).then(() => {
+                displayPredictions();
+            }).catch(error => console.error('Error updating like:', error));
         }
     
         function verifyPrediction(predictionId, result) {
@@ -528,13 +540,15 @@
             prediction.verified = true;
             prediction.result = result;
             prediction.verifiedAt = new Date().toISOString();
-            savePrediction(prediction);
-            myPredictions = myPredictions.map(p => p.id === predictionId ? prediction : p);
-            localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
-            updateStats();
-            displayPredictions();
-            displayMyPredictions();
-            alert(`已标记为${result ? '成功' : '失败'}`);
+            const dbRef = ref(database, `predictions/${Object.keys(ref(database, 'predictions')._delegate._path._path)[allPredictions.findIndex(p => p.id === predictionId)]}`);
+            set(dbRef, prediction).then(() => {
+                myPredictions = myPredictions.map(p => p.id === predictionId ? prediction : p);
+                localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
+                updateStats();
+                displayPredictions();
+                displayMyPredictions();
+                alert(`已标记为${result ? '成功' : '失败'}`);
+            }).catch(error => console.error('Error verifying prediction:', error));
         }
     
         function deletePrediction(predictionId) {
