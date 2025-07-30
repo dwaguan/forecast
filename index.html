@@ -73,6 +73,7 @@
             border-left: 4px solid var(--primary);
             padding-left: 15px;
             margin-bottom: 15px;
+            position: relative;
         }
         .status-tag {
             display: inline-block;
@@ -103,6 +104,35 @@
             font-size: 24px;
             font-weight: bold;
             margin: 10px 0;
+        }
+        .actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        .delete-btn {
+            background: #6c757d;
+        }
+        .verified-true {
+            opacity: 0.8;
+            background: #f8f9fa;
+        }
+        
+        /* 移动端优化 */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .card {
+                padding: 15px;
+            }
+            .actions {
+                flex-direction: column;
+            }
+            button {
+                width: 100%;
+                margin-bottom: 5px;
+            }
         }
     </style>
 </head>
@@ -169,6 +199,7 @@
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             document.getElementById('due-date').valueAsDate = tomorrow;
+            document.getElementById('due-date').min = new Date().toISOString().split('T')[0];
             
             // 加载已有预测
             loadPredictions();
@@ -219,6 +250,11 @@
             document.getElementById('confidence').value = '50';
             document.getElementById('confidence-value').textContent = '50%';
             
+            // 设置明天为默认日期
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('due-date').valueAsDate = tomorrow;
+            
             // 刷新显示
             loadPredictions();
             updateStats();
@@ -242,12 +278,12 @@
                 return;
             }
             
-            // 按截止日期排序
+            // 按截止日期排序（最近的在前）
             predictions.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
             
             predictions.forEach(pred => {
                 const predEl = document.createElement('div');
-                predEl.className = 'prediction-item';
+                predEl.className = `prediction-item ${pred.verified ? 'verified-true' : ''}`;
                 
                 // 状态判断
                 const today = new Date().toISOString().split('T')[0];
@@ -288,11 +324,14 @@
                     <p><strong>信心值:</strong> ${pred.confidence}%</p>
                     <p><strong>创建时间:</strong> ${formatDateTime(pred.createdAt)}</p>
                     <div class="status-tag ${statusClass[status]}">${statusText[status]}</div>
-                    ${!pred.verified && status !== 'pending' ? 
-                        `<div style="margin-top: 10px;">
-                            <button onclick="verifyPrediction(${pred.id}, true)">预测成功</button>
-                            <button onclick="verifyPrediction(${pred.id}, false)" style="background: ${status === 'overdue' ? '#6c757d' : '#ef476f'}">预测失败</button>
-                        </div>` : ''}
+                    
+                    <div class="actions">
+                        ${!pred.verified && status !== 'pending' ? 
+                            `<button onclick="verifyPrediction(${pred.id}, true)">预测成功</button>
+                             <button onclick="verifyPrediction(${pred.id}, false)" style="background: var(--danger)">预测失败</button>` : ''}
+                        <button class="delete-btn" onclick="deletePrediction(${pred.id})">删除</button>
+                    </div>
+                    
                     ${pred.verified ? `<p><strong>验证时间:</strong> ${formatDateTime(pred.verifiedAt)}</p>` : ''}
                 `;
                 
@@ -310,6 +349,17 @@
                 predictions[index].result = result;
                 predictions[index].verifiedAt = new Date().toISOString();
                 
+                localStorage.setItem('predictions', JSON.stringify(predictions));
+                loadPredictions();
+                updateStats();
+                alert(`已标记为${result ? "成功" : "失败"}`);
+            }
+        }
+        
+        // 删除预测
+        function deletePrediction(id) {
+            if (confirm('确定要删除这条预测吗？')) {
+                const predictions = getPredictions().filter(p => p.id !== id);
                 localStorage.setItem('predictions', JSON.stringify(predictions));
                 loadPredictions();
                 updateStats();
