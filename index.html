@@ -274,7 +274,7 @@
         // Import Firebase SDK
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
         import { getDatabase, ref, push, onValue, set } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js';
-
+    
         // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyQtsgh6G5TLqk_EgfyA9tIWvxnzGlpdy",
@@ -286,17 +286,17 @@
             appId: "1:497238817189:web:ec3f5f5818e8fd2c24a4c",
             measurementId: "G-T3BQTY3FL"
         };
-
+    
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
-
+    
         // Global state
         let allPredictions = [];
         let myPredictions = JSON.parse(localStorage.getItem('myPredictions')) || [];
         let currentUser = localStorage.getItem('forecast-user-id') || ('user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9));
         let currentTab = 'feed';
-
+    
         document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('forecast-user-id', currentUser);
             setupEventListeners();
@@ -305,7 +305,7 @@
             const loadingOverlay = document.getElementById('loading-overlay');
             if (loadingOverlay) loadingOverlay.style.display = 'none';
         });
-
+    
         function setupEventListeners() {
             const form = document.getElementById('public-prediction-form');
             if (form) form.addEventListener('submit', handlePredictionSubmit);
@@ -315,10 +315,17 @@
                 confidenceSlider.addEventListener('input', () => confidenceValue.textContent = `${confidenceSlider.value}%`);
             }
             document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.addEventListener('click', () => switchTab(btn.textContent.trim().slice(0, -1)));
+                btn.addEventListener('click', () => {
+                    const tabMap = {
+                        '🌍 全球预测': 'feed',
+                        '➕ 发布预测': 'create',
+                        '📝 我的预测': 'my'
+                    };
+                    switchTab(tabMap[btn.textContent.trim()]);
+                });
             });
         }
-
+    
         function setDefaultDate() {
             const dueDateInput = document.getElementById('due-date');
             if (dueDateInput) {
@@ -328,7 +335,7 @@
                 dueDateInput.min = new Date().toISOString().split('T')[0];
             }
         }
-
+    
         function loadPredictions() {
             const predictionsRef = ref(database, 'predictions');
             onValue(predictionsRef, (snapshot) => {
@@ -342,7 +349,7 @@
                 document.getElementById('global-predictions').innerHTML = '❌ 数据加载失败。';
             });
         }
-
+    
         function savePrediction(prediction) {
             try {
                 push(ref(database, 'predictions'), prediction);
@@ -353,27 +360,27 @@
                 return false;
             }
         }
-
+    
         function handlePredictionSubmit(e) {
             e.preventDefault();
             const submitBtn = document.getElementById('submit-btn');
             if (!submitBtn) return;
             submitBtn.disabled = true;
             submitBtn.textContent = '发布中...';
-
+    
             const username = document.getElementById('username')?.value.trim() || '匿名用户';
             const content = document.getElementById('content')?.value.trim();
             const dueDate = document.getElementById('due-date')?.value;
             const category = document.getElementById('category')?.value;
             const confidence = parseInt(document.getElementById('confidence')?.value || 50);
-
+    
             if (!content || !dueDate) {
                 alert('请填写预测内容和截止日期！');
                 submitBtn.disabled = false;
                 submitBtn.textContent = '🚀 发布到全球';
                 return;
             }
-
+    
             const newPrediction = {
                 id: Date.now().toString(),
                 content, dueDate, category, confidence, username,
@@ -381,7 +388,7 @@
                 verified: false, result: null, verifiedAt: null,
                 likes: [], likesCount: 0
             };
-
+    
             const success = savePrediction(newPrediction);
             if (success) {
                 allPredictions.unshift(newPrediction);
@@ -400,7 +407,7 @@
             submitBtn.disabled = false;
             submitBtn.textContent = '🚀 发布到全球';
         }
-
+    
         function switchTab(tabName) {
             currentTab = tabName;
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -413,7 +420,7 @@
             if (tabName === 'feed') displayPredictions();
             else if (tabName === 'my') displayMyPredictions();
         }
-
+    
         function updateStats() {
             const total = allPredictions.length;
             const verified = allPredictions.filter(p => p.verified).length;
@@ -423,7 +430,7 @@
             document.getElementById('verified-predictions').textContent = verified;
             document.getElementById('today-predictions').textContent = todayCount;
         }
-
+    
         function displayPredictions() {
             const container = document.getElementById('global-predictions');
             if (!container) return;
@@ -434,7 +441,7 @@
             let filtered = filterAndSortPredictions(allPredictions);
             container.innerHTML = filtered.map(pred => createPredictionHTML(pred, true)).join('');
         }
-
+    
         function displayMyPredictions() {
             const container = document.getElementById('my-predictions');
             if (!container) return;
@@ -445,7 +452,7 @@
             }
             container.innerHTML = myPreds.map(pred => createPredictionHTML(pred, false)).join('');
         }
-
+    
         function filterAndSortPredictions(predictions) {
             const categoryFilter = document.getElementById('category-filter')?.value || '';
             const statusFilter = document.getElementById('status-filter')?.value || '';
@@ -461,11 +468,11 @@
             }
             return filtered;
         }
-
+    
         function filterPredictions() {
             if (currentTab === 'feed') displayPredictions();
         }
-
+    
         function getStatus(prediction) {
             if (prediction.verified) return 'verified';
             const today = new Date().toISOString().split('T')[0];
@@ -474,7 +481,7 @@
             if (dueDate < today) return 'overdue';
             return 'pending';
         }
-
+    
         function createPredictionHTML(pred, showPublicActions) {
             const status = getStatus(pred);
             const statusText = { 'pending': '未到期', 'due': '今日到期', 'overdue': '已过期', 'verified': pred.result ? '预测成功' : '预测失败' };
@@ -502,7 +509,7 @@
                 </div>
             `;
         }
-
+    
         function toggleLike(predictionId) {
             const prediction = allPredictions.find(p => p.id === predictionId);
             if (!prediction) return;
@@ -514,7 +521,7 @@
             savePrediction(prediction);
             displayPredictions();
         }
-
+    
         function verifyPrediction(predictionId, result) {
             const prediction = allPredictions.find(p => p.id === predictionId);
             if (!prediction || prediction.userId !== currentUser) return;
@@ -529,7 +536,7 @@
             displayMyPredictions();
             alert(`已标记为${result ? '成功' : '失败'}`);
         }
-
+    
         function deletePrediction(predictionId) {
             if (!confirm('确定要删除这条预测吗？')) return;
             const index = allPredictions.findIndex(p => p.id === predictionId);
@@ -543,12 +550,12 @@
             displayPredictions();
             displayMyPredictions();
         }
-
+    
         function formatDate(dateString) {
             const date = new Date(dateString);
             return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
         }
-
+    
         function formatDateTime(dateString) {
             const date = new Date(dateString);
             const now = new Date();
@@ -558,7 +565,7 @@
             if (diffHours < 48) return '昨天';
             return formatDate(dateString);
         }
-
+    
         window.switchTab = switchTab;
         window.toggleLike = toggleLike;
         window.verifyPrediction = verifyPrediction;
