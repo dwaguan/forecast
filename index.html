@@ -120,30 +120,41 @@ function savePrediction(prediction) {
 
 function submitPrediction() {
     const content = document.getElementById('prediction-content').value.trim();
-    const category = document.getElementById('prediction-category').value;
-    const dueDate = document.getElementById('prediction-date').value;
-    const confidence = parseInt(document.getElementById('prediction-confidence').value);
-    if (!content || !dueDate || !confidence) return alert('请完整填写所有字段');
-    const id = Date.now().toString();
+    const category = document.getElementById('category').value;
+    const confidence = parseInt(document.getElementById('confidence').value, 10);
+    const dueDate = document.getElementById('due-date').value;
+
+    if (!content || !category || !confidence || !dueDate) {
+        alert('请填写所有字段');
+        return;
+    }
+
     const newPrediction = {
-        id,
-        userId: currentUser,
-        username: currentUser,
+        id: Date.now().toString(),
         content,
         category,
-        dueDate,
         confidence,
+        dueDate,
         createdAt: new Date().toISOString(),
+        verified: false,
+        userId: currentUser,
+        username: '你',  // 可以动态获取用户名
         likes: [],
-        likesCount: 0,
-        verified: false
+        likesCount: 0
     };
-    savePrediction(newPrediction);
-    myPredictions.push(newPrediction);
-    localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
-    switchTab('my');
-}
 
+    allPredictions.push(newPrediction);
+    myPredictions.push(newPrediction);
+    savePrediction(newPrediction);
+    localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
+    updateStats();
+    displayPredictions();
+    displayMyPredictions();
+
+    document.getElementById('prediction-content').value = '';
+    alert('🎉 预测已提交！');
+}
+    
 function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelector(`.tab-btn[onclick="switchTab('${tabName}')"]`).classList.add('active');
@@ -248,6 +259,8 @@ function formatDate(s) {
     return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
 }
 
+
+window.submitPrediction = submitPrediction;
 window.switchTab = switchTab;
 window.toggleLike = toggleLike;
 window.verifyPrediction = verifyPrediction;
