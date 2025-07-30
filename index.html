@@ -88,9 +88,9 @@
     </div>
 
     <script type="module">
-      // Import Firebase SDK
-      import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js';
-      import { getDatabase, ref, push, onValue } from 'https://www.gstatic.com/firebasejs/9.6.0/firebase-database.js';
+      // Import Firebase SDK (Updated to 9.23.0)
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
+      import { getDatabase, ref, push, onValue } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js';
     
       // Firebase Configuration
       const firebaseConfig = {
@@ -174,36 +174,45 @@
     
       // Public Forecast Functionality
       function savePublicForecast() {
-        const content = document.getElementById('publicForecastInput').value;
-        const username = document.getElementById('usernameInput').value || '匿名';
-        const deadline = document.getElementById('publicDeadlineInput').value;
-        const confidence = document.getElementById('publicConfidenceInput').value;
-        if (!content || !deadline) {
-          alert("请填写预测内容和截止日期！");
-          return;
+        try {
+          const content = document.getElementById('publicForecastInput').value;
+          const username = document.getElementById('usernameInput').value || '匿名';
+          const deadline = document.getElementById('publicDeadlineInput').value;
+          const confidence = document.getElementById('publicConfidenceInput').value;
+          if (!content || !deadline) {
+            alert("请填写预测内容和截止日期！");
+            return;
+          }
+          push(ref(database, 'forecasts'), {
+            content,
+            username,
+            deadline,
+            confidence: parseInt(confidence),
+            timestamp: Date.now()
+          });
+          document.getElementById('publicForecastInput').value = '';
+          document.getElementById('usernameInput').value = '';
+        } catch (error) {
+          console.error("Error saving public forecast:", error);
+          alert("保存预测失败，请检查网络或稍后重试！");
         }
-        push(ref(database, 'forecasts'), {
-          content,
-          username,
-          deadline,
-          confidence: parseInt(confidence),
-          timestamp: Date.now()
-        });
-        document.getElementById('publicForecastInput').value = '';
-        document.getElementById('usernameInput').value = '';
       }
     
       onValue(ref(database, 'forecasts'), (snapshot) => {
-        const forecasts = snapshot.val();
-        const list = document.getElementById('publicForecastList');
-        list.innerHTML = '';
-        if (forecasts) {
-          Object.values(forecasts).reverse().forEach(f => {
-            const div = document.createElement('div');
-            div.className = 'forecast-item';
-            div.innerHTML = `<strong>${f.username}</strong>: ${f.content} (信心: ${f.confidence}%) - 截止: ${f.deadline}`;
-            list.appendChild(div);
-          });
+        try {
+          const forecasts = snapshot.val();
+          const list = document.getElementById('publicForecastList');
+          list.innerHTML = '';
+          if (forecasts) {
+            Object.values(forecasts).reverse().forEach(f => {
+              const div = document.createElement('div');
+              div.className = 'forecast-item';
+              div.innerHTML = `<strong>${f.username}</strong>: ${f.content} (信心: ${f.confidence}%) - 截止: ${f.deadline}`;
+              list.appendChild(div);
+            });
+          }
+        } catch (error) {
+          console.error("Error updating public feed:", error);
         }
       });
     
@@ -219,6 +228,11 @@
       // Initial render
       updateForecastList();
       updateStats();
+    
+      // Expose functions to global scope for onclick attributes
+      window.savePrivateForecast = savePrivateForecast;
+      window.savePublicForecast = savePublicForecast;
+      window.verifyForecast = verifyForecast;
     </script>
 </body>
 </html>
