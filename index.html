@@ -1,270 +1,244 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prediction App</title>
+    <title>预测平台</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 0; padding: 0; }
-        header { background: #343a40; color: white; padding: 10px; text-align: center; }
-        .tabs { display: flex; justify-content: center; background: #e9ecef; }
-        .tab-btn { padding: 10px 20px; cursor: pointer; border: none; background: none; }
-        .tab-btn.active { background: white; border-bottom: 2px solid #007bff; }
-        .tab-content { padding: 20px; display: none; }
-        .prediction-item { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
-        .status-tag { padding: 5px 10px; border-radius: 5px; font-size: 12px; }
-        .status-pending { background: #ffc107; }
-        .status-today { background: #17a2b8; }
-        .status-overdue { background: #dc3545; }
-        .status-success { background: #28a745; }
-        .status-fail { background: #6c757d; }
-        .actions button { margin-right: 5px; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; }
-        .like-btn.liked { background: #ffc0cb; }
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .tab-btn { padding: 10px; margin: 5px; cursor: pointer; border: none; background: #ddd; }
+        .tab-btn.active { background: #007bff; color: white; }
+        .tab-content { display: none; margin-top: 20px; }
+        .prediction-item { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 5px; }
+        .status-tag { padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-block; margin-top: 10px; }
+        .status-pending { background: #ffc107; color: #000; }
+        .status-today { background: #17a2b8; color: #fff; }
+        .status-overdue { background: #dc3545; color: #fff; }
+        .status-success { background: #28a745; color: #fff; }
+        .status-fail { background: #6c757d; color: #fff; }
+        .like-btn.liked { color: red; }
+        .actions button { margin-right: 8px; }
     </style>
 </head>
 <body>
-<header>
-    <h1>预测平台</h1>
-</header>
-<div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('feed')">📢 全球预测</button>
-    <button class="tab-btn" onclick="switchTab('my')">📝 我的预测</button>
-    <button class="tab-btn" onclick="switchTab('create')">➕ 发布预测</button>
-</div>
-<div id="feed-tab" class="tab-content" style="display:block">
-    <div id="stats">
-        <span>总预测: <span id="total-predictions">0</span></span> |
-        <span>已验证: <span id="verified-predictions">0</span></span> |
-        <span>今日新增: <span id="today-predictions">0</span></span>
-    </div>
+    <h1>📊 预测平台</h1>
     <div>
-        分类:
-        <select id="category-filter" onchange="filterPredictions()">
-            <option value="">全部</option>
-            <option value="finance">财经</option>
-            <option value="politics">政治</option>
-            <option value="sports">体育</option>
-            <option value="tech">科技</option>
-            <option value="climate">气候</option>
-            <option value="other">其他</option>
-        </select>
-        状态:
-        <select id="status-filter" onchange="filterPredictions()">
-            <option value="">全部</option>
-            <option value="pending">未到期</option>
-            <option value="due">今日到期</option>
-            <option value="overdue">已过期</option>
-            <option value="verified">已验证</option>
-        </select>
-        排序:
-        <select id="sort-filter" onchange="filterPredictions()">
-            <option value="newest">最新</option>
-            <option value="oldest">最早</option>
-            <option value="likes">点赞数</option>
-            <option value="confidence">信心值</option>
-        </select>
+        <button class="tab-btn active" onclick="switchTab('feed')">🌍 全部预测</button>
+        <button class="tab-btn" onclick="switchTab('my')">🧑‍💻 我的预测</button>
+        <button class="tab-btn" onclick="switchTab('new')">➕ 发布预测</button>
     </div>
-    <div id="global-predictions"></div>
-</div>
-<div id="my-tab" class="tab-content">
-    <div id="my-predictions"></div>
-</div>
-<div id="create-tab" class="tab-content">
-    <h3>发布新的预测</h3>
-    <textarea id="prediction-content" rows="4" cols="50" placeholder="输入你的预测..."></textarea><br>
-    分类:
-    <select id="prediction-category">
-        <option value="finance">财经</option>
-        <option value="politics">政治</option>
-        <option value="sports">体育</option>
-        <option value="tech">科技</option>
-        <option value="climate">气候</option>
-        <option value="other">其他</option>
-    </select><br>
-    截止日期: <input type="date" id="prediction-date"><br>
-    信心值: <input type="number" id="prediction-confidence" min="1" max="100" value="50">%<br>
-    <button onclick="submitPrediction()">提交</button>
-</div>
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
-import { getDatabase, ref, set, onValue, remove } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCtShgB65TLqik_EgfYA9hTIwvxnZglpdY",
-  authDomain: "forecast-fab55.firebaseapp.com",
-  databaseURL: "https://forecast-fab55-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "forecast-fab55",
-  storageBucket: "forecast-fab55.firebasestorage.app",
-  messagingSenderId: "497230817189",
-  appId: "1:497230817189:web:ec30f5f5818e8fd2fc2a4c",
-  measurementId: "G-T3BQTYV3FL"
-};
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
-
-let allPredictions = [];
-let myPredictions = JSON.parse(localStorage.getItem('myPredictions') || '[]');
-let currentUser = localStorage.getItem('user') || `user_${Date.now()}`;
-localStorage.setItem('user', currentUser);
-
-onValue(ref(database, 'predictions'), (snapshot) => {
-    const data = snapshot.val();
-    allPredictions = data ? Object.values(data) : [];
-    updateStats();
-    displayPredictions();
-});
-
-function savePrediction(prediction) {
-    set(ref(database, `predictions/${prediction.id}`), prediction);
-}
-
-function submitPrediction() {
-    const content = document.getElementById('prediction-content').value.trim();
-    const category = document.getElementById('category').value;
-    const confidence = parseInt(document.getElementById('confidence').value, 10);
-    const dueDate = document.getElementById('due-date').value;
-
-    if (!content || !category || !confidence || !dueDate) {
-        alert('请填写所有字段');
-        return;
-    }
-
-    const newPrediction = {
-        id: Date.now().toString(),
-        content,
-        category,
-        confidence,
-        dueDate,
-        createdAt: new Date().toISOString(),
-        verified: false,
-        userId: currentUser,
-        username: '你',  // 可以动态获取用户名
-        likes: [],
-        likesCount: 0
-    };
-
-    allPredictions.push(newPrediction);
-    myPredictions.push(newPrediction);
-    savePrediction(newPrediction);
-    localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
-    updateStats();
-    displayPredictions();
-    displayMyPredictions();
-
-    document.getElementById('prediction-content').value = '';
-    alert('🎉 预测已提交！');
-}
-    
-function switchTab(tabName) {
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`.tab-btn[onclick="switchTab('${tabName}')"]`).classList.add('active');
-    document.querySelectorAll('.tab-content').forEach(tc => tc.style.display = 'none');
-    document.getElementById(`${tabName}-tab`).style.display = 'block';
-    if (tabName === 'feed') displayPredictions();
-    else if (tabName === 'my') displayMyPredictions();
-}
-
-function updateStats() {
-    const total = allPredictions.length;
-    const verified = allPredictions.filter(p => p.verified).length;
-    const today = new Date().toISOString().split('T')[0];
-    const todayCount = allPredictions.filter(p => p.createdAt.split('T')[0] === today).length;
-    document.getElementById('total-predictions').textContent = total;
-    document.getElementById('verified-predictions').textContent = verified;
-    document.getElementById('today-predictions').textContent = todayCount;
-}
-
-function displayPredictions() {
-    const container = document.getElementById('global-predictions');
-    const filtered = filterAndSortPredictions(allPredictions);
-    container.innerHTML = filtered.length ? filtered.map(p => createPredictionHTML(p, true)).join('') : '📭 还没有预测';
-}
-
-function displayMyPredictions() {
-    const container = document.getElementById('my-predictions');
-    const myPreds = myPredictions.filter(p => p.userId === currentUser);
-    container.innerHTML = myPreds.length ? myPreds.map(p => createPredictionHTML(p, false)).join('') : '📝 你还没有发布任何预测';
-}
-
-function filterAndSortPredictions(predictions) {
-    const category = document.getElementById('category-filter').value;
-    const status = document.getElementById('status-filter').value;
-    const sort = document.getElementById('sort-filter').value;
-    let result = [...predictions];
-    if (category) result = result.filter(p => p.category === category);
-    if (status) result = result.filter(p => getStatus(p) === status);
-    if (sort === 'oldest') result.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
-    else if (sort === 'likes') result.sort((a,b)=>(b.likesCount||0)-(a.likesCount||0));
-    else if (sort === 'confidence') result.sort((a,b)=>b.confidence - a.confidence);
-    else result.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-    return result;
-}
-
-function getStatus(pred) {
-    const today = new Date().toISOString().split('T')[0];
-    if (pred.verified) return 'verified';
-    if (pred.dueDate === today) return 'due';
-    if (pred.dueDate < today) return 'overdue';
-    return 'pending';
-}
-
-function createPredictionHTML(pred, showPublic) {
-    const status = getStatus(pred);
-    const statusMap = { pending: '未到期', due: '今日到期', overdue: '已过期', verified: pred.result ? '成功' : '失败' };
-    const classMap = { pending:'status-pending', due:'status-today', overdue:'status-overdue', verified: pred.result?'status-success':'status-fail' };
-    const isLiked = pred.likes.includes(currentUser);
-    const canVerify = !pred.verified && ['due','overdue'].includes(status) && pred.userId === currentUser;
-    return `<div class="prediction-item">
-        <h3>${pred.content}</h3>
-        <div>📅 截止: ${pred.dueDate} 🎯 信心: ${pred.confidence}%</div>
-        <div class="status-tag ${classMap[status]}">${statusMap[status]}</div>
-        <div class="actions">
-            ${showPublic ? `<button class="like-btn ${isLiked ? 'liked':''}" onclick="toggleLike('${pred.id}')">❤️ ${pred.likesCount}</button>`:''}
-            ${canVerify ? `<button onclick="verifyPrediction('${pred.id}',true)">✅ 成功</button><button onclick="verifyPrediction('${pred.id}',false)">❌ 失败</button>`:''}
-            ${pred.userId === currentUser ? `<button onclick="deletePrediction('${pred.id}')">🗑️ 删除</button>`:''}
+    <div id="feed-tab" class="tab-content" style="display: block;">
+        <div>
+            筛选:
+            <select id="category-filter" onchange="filterPredictions()">
+                <option value="">全部</option>
+                <option value="finance">📈 金融</option>
+                <option value="politics">🏛️ 政治</option>
+                <option value="sports">⚽ 体育</option>
+                <option value="tech">🚀 科技</option>
+                <option value="climate">🌡️ 气候</option>
+                <option value="other">🌟 其他</option>
+            </select>
+            <select id="status-filter" onchange="filterPredictions()">
+                <option value="">全部状态</option>
+                <option value="pending">未到期</option>
+                <option value="due">今日到期</option>
+                <option value="overdue">已过期</option>
+                <option value="verified">已验证</option>
+            </select>
+            <select id="sort-filter" onchange="filterPredictions()">
+                <option value="newest">最新</option>
+                <option value="oldest">最早</option>
+                <option value="likes">点赞最多</option>
+                <option value="confidence">信心最高</option>
+            </select>
         </div>
-        ${pred.verified ? `<small>验证时间: ${formatDate(pred.verifiedAt)}</small>`:''}
-    </div>`;
-}
+        <div id="global-predictions"></div>
+    </div>
 
-function toggleLike(id) {
-    const p = allPredictions.find(p => p.id === id);
-    if (!p) return;
-    const idx = p.likes.indexOf(currentUser);
-    if (idx > -1) p.likes.splice(idx,1);
-    else p.likes.push(currentUser);
-    p.likesCount = p.likes.length;
-    savePrediction(p);
-}
+    <div id="my-tab" class="tab-content">
+        <div id="my-predictions"></div>
+    </div>
 
-function verifyPrediction(id, result) {
-    const p = allPredictions.find(p => p.id === id);
-    if (!p || p.userId !== currentUser) return;
-    p.verified = true; p.result = result; p.verifiedAt = new Date().toISOString();
-    savePrediction(p);
-    myPredictions = myPredictions.map(mp => mp.id === id ? p : mp);
-    localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
-    alert(`标记为${result ? '成功' : '失败'}`);
-}
+    <div id="new-tab" class="tab-content">
+        <h2>➕ 发布新的预测</h2>
+        <input type="text" id="prediction-content" placeholder="你的预测内容" style="width: 100%; margin-bottom: 10px;"><br>
+        截止日期: <input type="date" id="prediction-due" style="margin-bottom: 10px;"><br>
+        信心: <input type="number" id="prediction-confidence" min="1" max="100" value="50" style="width: 60px;">%<br>
+        分类:
+        <select id="prediction-category">
+            <option value="finance">📈 金融</option>
+            <option value="politics">🏛️ 政治</option>
+            <option value="sports">⚽ 体育</option>
+            <option value="tech">🚀 科技</option>
+            <option value="climate">🌡️ 气候</option>
+            <option value="other">🌟 其他</option>
+        </select><br><br>
+        <button onclick="submitPrediction()">提交预测</button>
+    </div>
 
-function deletePrediction(id) {
-    if (!confirm('确定删除？')) return;
-    remove(ref(database, `predictions/${id}`));
-    myPredictions = myPredictions.filter(p => p.id !== id);
-    localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
-}
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 
-function formatDate(s) {
-    const d = new Date(s);
-    return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
-}
+        const firebaseConfig = {
+          apiKey: "AIzaSyCtShgB65TLqik_EgfYA9hTIwvxnZglpdY",
+          authDomain: "forecast-fab55.firebaseapp.com",
+          databaseURL: "https://forecast-fab55-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "forecast-fab55",
+          storageBucket: "forecast-fab55.firebasestorage.app",
+          messagingSenderId: "497230817189",
+          appId: "1:497230817189:web:ec30f5f5818e8fd2fc2a4c",
+          measurementId: "G-T3BQTYV3FL"
+        };
 
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
 
-window.submitPrediction = submitPrediction;
-window.switchTab = switchTab;
-window.toggleLike = toggleLike;
-window.verifyPrediction = verifyPrediction;
-window.deletePrediction = deletePrediction;
-</script>
+        let currentUser = 'user_' + Math.floor(Math.random() * 10000);
+        let allPredictions = [];
+        let myPredictions = [];
+        let currentTab = 'feed';
+
+        onValue(ref(database, 'predictions'), snapshot => {
+            const data = snapshot.val();
+            allPredictions = data ? Object.values(data) : [];
+            myPredictions = allPredictions.filter(p => p.userId === currentUser);
+            displayPredictions();
+            displayMyPredictions();
+        });
+
+        function submitPrediction() {
+            const content = document.getElementById('prediction-content').value.trim();
+            const dueDate = document.getElementById('prediction-due').value;
+            const confidence = parseInt(document.getElementById('prediction-confidence').value);
+            const category = document.getElementById('prediction-category').value;
+            if (!content || !dueDate || isNaN(confidence)) {
+                alert('请完整填写所有字段');
+                return;
+            }
+            const id = 'pred_' + Date.now();
+            const newPred = {
+                id,
+                content,
+                dueDate,
+                confidence,
+                category,
+                createdAt: new Date().toISOString(),
+                userId: currentUser,
+                username: currentUser,
+                likes: [],
+                likesCount: 0,
+                verified: false
+            };
+            set(ref(database, 'predictions/' + id), newPred);
+            document.getElementById('prediction-content').value = '';
+            alert('预测已发布');
+            switchTab('my');
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(tabDiv => tabDiv.style.display = 'none');
+            document.getElementById(`${tab}-tab`).style.display = 'block';
+            if (tab === 'feed') displayPredictions();
+            else if (tab === 'my') displayMyPredictions();
+        }
+
+        function displayPredictions() {
+            const container = document.getElementById('global-predictions');
+            if (!container) return;
+            const filtered = filterAndSortPredictions(allPredictions);
+            container.innerHTML = filtered.length ? filtered.map(p => createPredictionHTML(p, true)).join('') : '📭 没有预测';
+        }
+
+        function displayMyPredictions() {
+            const container = document.getElementById('my-predictions');
+            if (!container) return;
+            container.innerHTML = myPredictions.length ? myPredictions.map(p => createPredictionHTML(p, false)).join('') : '📝 你还没有预测';
+        }
+
+        function filterPredictions() {
+            if (currentTab === 'feed') displayPredictions();
+        }
+
+        function filterAndSortPredictions(predictions) {
+            const cat = document.getElementById('category-filter').value;
+            const stat = document.getElementById('status-filter').value;
+            const sort = document.getElementById('sort-filter').value;
+            let filtered = [...predictions];
+            if (cat) filtered = filtered.filter(p => p.category === cat);
+            if (stat) filtered = filtered.filter(p => getStatus(p) === stat);
+            if (sort === 'likes') filtered.sort((a, b) => b.likesCount - a.likesCount);
+            else if (sort === 'confidence') filtered.sort((a, b) => b.confidence - a.confidence);
+            else if (sort === 'oldest') filtered.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            else filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            return filtered;
+        }
+
+        function getStatus(p) {
+            if (p.verified) return 'verified';
+            const today = new Date().toISOString().split('T')[0];
+            if (p.dueDate === today) return 'due';
+            if (p.dueDate < today) return 'overdue';
+            return 'pending';
+        }
+
+        function createPredictionHTML(p, showActions) {
+            const status = getStatus(p);
+            const statusText = { pending: '未到期', due: '今日到期', overdue: '已过期', verified: p.result ? '成功' : '失败' };
+            const statusClass = { pending: 'status-pending', due: 'status-today', overdue: 'status-overdue', verified: p.result ? 'status-success' : 'status-fail' };
+            const liked = p.likes.includes(currentUser);
+            const canVerify = !p.verified && ['due', 'overdue'].includes(status) && p.userId === currentUser;
+            return `
+            <div class="prediction-item">
+                <h3>${p.content}</h3>
+                <div>
+                    👤 ${p.username} | 🎯 信心 ${p.confidence}% | 截止 ${p.dueDate} | ⏰ ${formatDateTime(p.createdAt)}
+                </div>
+                <div class="status-tag ${statusClass[status]}">${statusText[status]}</div>
+                <div class="actions">
+                    ${showActions ? `<button class="like-btn ${liked ? 'liked' : ''}" onclick="toggleLike('${p.id}')">❤️ ${p.likesCount}</button>` : ''}
+                    ${canVerify ? `<button onclick="verifyPrediction('${p.id}', true)">✅ 成功</button><button onclick="verifyPrediction('${p.id}', false)">❌ 失败</button>` : ''}
+                    ${p.userId === currentUser ? `<button onclick="deletePrediction('${p.id}')">🗑️ 删除</button>` : ''}
+                </div>
+            </div>`;
+        }
+
+        window.submitPrediction = submitPrediction;
+        window.switchTab = switchTab;
+        window.toggleLike = function(id) {
+            const p = allPredictions.find(p => p.id === id);
+            if (!p) return;
+            const idx = p.likes.indexOf(currentUser);
+            if (idx > -1) p.likes.splice(idx, 1);
+            else p.likes.push(currentUser);
+            p.likesCount = p.likes.length;
+            set(ref(database, 'predictions/' + id), p);
+        };
+
+        window.verifyPrediction = function(id, result) {
+            const p = allPredictions.find(p => p.id === id);
+            if (!p || p.userId !== currentUser) return;
+            p.verified = true;
+            p.result = result;
+            p.verifiedAt = new Date().toISOString();
+            set(ref(database, 'predictions/' + id), p);
+            alert('标记成功');
+        };
+
+        window.deletePrediction = function(id) {
+            if (!confirm('确定删除?')) return;
+            set(ref(database, 'predictions/' + id), null);
+        };
+
+        function formatDateTime(dateStr) {
+            const d = new Date(dateStr);
+            return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}`;
+        }
+    </script>
 </body>
 </html>
