@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>预测训练器 - 公共平台</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .public-feed {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .forecast-item {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        input, button, select {
+            margin: 10px 0;
+            padding: 8px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database.js"></script>
+</head>
+<body>
+    <h1>🔮 预测训练器 - 公共平台</h1>
+    <div class="container">
+        <!-- Private Forecast Section -->
+        <div class="section">
+            <h2>📝 我的预测</h2>
+            <input type="text" id="forecastInput" placeholder="输入预测内容">
+            <input type="date" id="deadlineInput">
+            <input type="range" id="confidenceInput" min="1" max="100" value="50">
+            <span id="confidenceValue">50%</span>
+            <button onclick="savePrivateForecast()">保存预测</button>
+            <h3>我的预测列表</h3>
+            <ul id="forecastList"></ul>
+            <h3>统计</h3>
+            <div id="stats">
+                <p>总预测数: <span id="totalForecasts">0</span></p>
+                <p>成功率: <span id="successRate">0%</span></p>
+                <p>平均信心: <span id="avgConfidence">0%</span></p>
+                <p>校准指数: <span id="calibrationIndex">0</span></p>
+            </div>
+        </div>
+        <!-- Public Forecast Section -->
+        <div class="section">
+            <h2>📡 公共预测流</h2>
+            <input type="text" id="publicForecastInput" placeholder="输入公共预测内容">
+            <input type="text" id="usernameInput" placeholder="用户名（可选）">
+            <input type="date" id="publicDeadlineInput">
+            <input type="range" id="publicConfidenceInput" min="1" max="100" value="50">
+            <span id="publicConfidenceValue">50%</span>
+            <button onclick="savePublicForecast()">分享预测</button>
+            <div class="public-feed" id="publicForecastList"></div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration (Replace with your Firebase project config)
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Private Forecast Functionality
+        let forecasts = JSON.parse(localStorage.getItem('forecasts')) || [];
+
+        function savePrivateForecast() {
+            const content = document.getElementById('forecastInput').value;
+            const deadline = document.getElementById('deadlineInput').value;
+            const confidence = document.getElementById('confidenceInput').value;
+            if (content && deadline) {
+                forecasts.push({
+                    content,
+                    deadline,
+                    confidence: parseInt(confidence),
+                    status: 'pending',
+                    id: Date.now()
+                });
+                localStorage.setItem('forecasts', JSON.stringify(forecasts));
+                updateForecastList();
+                updateStats();
+            }
+        }
+
+        function updateForecastList() {
+            const list = document.getElementById('forecastList');
+            list.innerHTML = '';
+            forecasts.forEach(f => {
+                const li = document.createElement('li');
+                li.innerHTML = `${f.content} (信心: ${f.confidence}%) - 截止: ${f.deadline} 
+                    ${f.status === 'pending' ? 
+                        `<button onclick="verifyForecast(${f.id}, true)">成功</button>
+                         <button onclick="verifyForecast(${f.id}, false)">失败</button>` : 
+                        f.status}`;
+                list.appendChild(li);
+            });
+        }
+
+        function verifyForecast(id, success) {
+            forecasts = forecasts.map(f => {
+                if (f.id === id) {
+                    f.status = success ? 'success' : 'failed';
+                }
+                return f;
+            });
+            localStorage.setItem('forecasts', JSON.stringify(forecasts));
+            updateForecastList();
+            updateStats();
+        }
+
+        function updateStats() {
+            const total = forecasts.length;
+            const verified = forecasts.filter(f => f.status !== 'pending').length;
+            const successes = forecasts.filter(f => f.status === 'success').length;
+            const successRate = verified ? (successes / verified * 100).toFixed(1) : 0;
+            const avgConfidence = forecasts.length ? 
+                (forecasts.reduce((sum, f) => sum + f.confidence, 0) / forecasts.length).toFixed(1) : 0;
+            const calibrationIndex = avgConfidence && successRate ? (successRate / avgConfidence).toFixed(2) : 0;
+
+            document.getElementById('totalForecasts').textContent = total;
+            document.getElementById('successRate').textContent = successRate + '%';
+            document.getElementById('avgConfidence').textContent = avgConfidence + '%';
+            document.getElementById('calibrationIndex').textContent = calibrationIndex;
+        }
+
+        // Public Forecast Functionality
+        function savePublicForecast() {
+            const content = document.getElementById('publicForecastInput').value;
+            const username = document.getElementById('usernameInput').value || '匿名';
+            const deadline = document.getElementById('publicDeadlineInput').value;
+            const confidence = document.getElementById('publicConfidenceInput').value;
+            if (content && deadline) {
+                database.ref('forecasts').push({
+                    content,
+                    username,
+                    deadline,
+                    confidence: parseInt(confidence),
+                    timestamp: Date.now()
+                });
+                document.getElementById('publicForecastInput').value = '';
+                document.getElementById('usernameInput').value = '';
+            }
+        }
+
+        database.ref('forecasts').on('value', snapshot => {
+            const forecasts = snapshot.val();
+            const list = document.getElementById('publicForecastList');
+            list.innerHTML = '';
+            if (forecasts) {
+                Object.values(forecasts).reverse().forEach(f => {
+                    const div = document.createElement('div');
+                    div.className = 'forecast-item';
+                    div.innerHTML = `<strong>${f.username}</strong>: ${f.content} (信心: ${f.confidence}%) - 截止: ${f.deadline}`;
+                    list.appendChild(div);
+                });
+            }
+        });
+
+        // Update confidence value display
+        document.getElementById('confidenceInput').addEventListener('input', function() {
+            document.getElementById('confidenceValue').textContent = this.value + '%';
+        });
+
+        document.getElementById('publicConfidenceInput').addEventListener('input', function() {
+            document.getElementById('publicConfidenceValue').textContent = this.value + '%';
+        });
+
+        // Initial render
+        updateForecastList();
+        updateStats();
+    </script>
+</body>
+</html>
