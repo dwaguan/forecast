@@ -302,7 +302,6 @@
             </div>
         </div>
     </div>
-
     <script type="module">
         let firebaseApp, database;
         try {
@@ -322,9 +321,12 @@
             database = getDatabase(firebaseApp);
             initializeApp();
         } catch (e) {
-            document.getElementById('global-predictions').innerHTML = '❌ Firebase 加载失败，请检查网络。';
-            document.getElementById('loading-overlay').style.display = 'none';
             console.error('Firebase load error:', e);
+            const globalPredictions = document.getElementById('global-predictions');
+            if (globalPredictions) globalPredictions.innerHTML = '❌ Firebase 加载失败，请检查网络。';
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (loadingOverlay) loadingOverlay.style.display = 'none';
+            return; // Stop execution if Firebase fails to load
         }
     
         function initializeApp() {
@@ -338,11 +340,14 @@
                 setupEventListeners();
                 loadPredictions().then(() => {
                     switchTab('feed');
-                    document.getElementById('loading-overlay').style.display = 'none';
+                    const loadingOverlay = document.getElementById('loading-overlay');
+                    if (loadingOverlay) loadingOverlay.style.display = 'none';
                 }).catch(err => {
                     console.error('Load error:', err);
-                    document.getElementById('global-predictions').innerHTML = '❌ 数据加载失败。';
-                    document.getElementById('loading-overlay').style.display = 'none';
+                    const globalPredictions = document.getElementById('global-predictions');
+                    if (globalPredictions) globalPredictions.innerHTML = '❌ 数据加载失败。';
+                    const loadingOverlay = document.getElementById('loading-overlay');
+                    if (loadingOverlay) loadingOverlay.style.display = 'none';
                 });
                 setDefaultDate();
             });
