@@ -293,7 +293,7 @@
     
         // Global state
         let allPredictions = [];
-        let predictionKeys = {}; // Map of prediction id to Firebase key
+        let predictionKeys = {};
         let myPredictions = JSON.parse(localStorage.getItem('myPredictions')) || [];
         let currentUser = localStorage.getItem('forecast-user-id') || ('user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9));
         let currentTab = 'feed';
@@ -325,7 +325,6 @@
                     switchTab(tabMap[btn.textContent.trim()]);
                 });
             });
-            // Add change listeners for filters
             ['category-filter', 'status-filter', 'sort-filter'].forEach(id => {
                 const element = document.getElementById(id);
                 if (element) element.addEventListener('change', filterPredictions);
@@ -349,7 +348,7 @@
                 allPredictions = [];
                 predictionKeys = {};
                 Object.entries(data).forEach(([key, pred]) => {
-                    pred.id = pred.id || Date.now().toString(); // Ensure id exists
+                    pred.id = pred.id || Date.now().toString();
                     allPredictions.push(pred);
                     predictionKeys[pred.id] = key;
                 });
@@ -397,12 +396,21 @@
                 return;
             }
     
+            const answer = prompt('作者叫啥? (请输入正确答案才能发布)');
+            if (answer !== '王高远') {
+                alert('答案错误，发布失败！');
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 发布到全球';
+                return;
+            }
+    
             const newPrediction = {
                 id: Date.now().toString(),
                 content, dueDate, category, confidence, username,
                 userId: currentUser, createdAt: new Date().toISOString(),
                 verified: false, result: null, verifiedAt: null,
-                likes: [], likesCount: 0
+                likes: [], likesCount: 0,
+                authorVerified: true
             };
     
             savePrediction(newPrediction).then(success => {
