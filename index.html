@@ -334,7 +334,9 @@
       document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('forecast-user-id', currentUser);
         setupEventListeners();
-        loadPredictions();
+        loadPredictions().then(() => {
+          switchTab('feed'); // Trigger initial tab render after data load
+        });
         setDefaultDate();
       });
     
@@ -373,13 +375,15 @@
           if (!Array.isArray(allPredictions)) {
             allPredictions = Object.values(allPredictions);
           }
+          document.getElementById('global-predictions').classList.remove('loading');
           updateStats();
-          displayPredictions();
-          displayMyPredictions();
+          if (currentTab === 'feed') displayPredictions();
+          if (currentTab === 'my') displayMyPredictions();
         } catch (error) {
           console.error('Error loading predictions:', error);
           allPredictions = [];
           document.getElementById('global-predictions').innerHTML = '❌ 加载失败，请刷新页面重试';
+          document.getElementById('global-predictions').classList.remove('loading');
         }
       }
     
@@ -425,6 +429,8 @@
         const success = await savePrediction(newPrediction);
         if (success) {
           allPredictions.unshift(newPrediction);
+          myPredictions.unshift(newPrediction); // Sync with myPredictions
+          localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
           // Reset form
           e.target.reset();
           setDefaultDate();
@@ -433,10 +439,9 @@
           
           // Update displays
           updateStats();
-          displayPredictions();
-          displayMyPredictions();
+          if (currentTab === 'feed') displayPredictions();
+          if (currentTab === 'my') displayMyPredictions();
           
-          // Switch to feed tab
           switchTab('feed');
           
           alert('🎉 预测已成功发布到全球平台！');
