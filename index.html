@@ -589,13 +589,12 @@
         }
     
         function attemptDelete(predictionId, isPublic = false) {
-            const prediction = allPredictions.find(p => p.id === predictionId);
+            let prediction = allPredictions.find(p => p.id === predictionId);
         
             if (!prediction) {
-                // Try checking myPredictions as fallback
-                const fallback = myPredictions.find(p => p.id === predictionId);
-                if (!fallback) return alert('找不到预测');
-                else prediction = fallback;
+                // Fallback to myPredictions
+                prediction = myPredictions.find(p => p.id === predictionId);
+                if (!prediction) return alert('找不到预测');
             }
         
             if (isPublic) {
@@ -608,6 +607,7 @@
         
             deletePrediction(predictionId);
         }
+
 
         
         function deletePrediction(predictionId) {
