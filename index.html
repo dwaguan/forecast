@@ -367,7 +367,7 @@
             const newRef = push(ref(database, 'predictions'), prediction);
             return get(newRef).then(snapshot => {
                 const key = snapshot.key;
-                predictionKeys[prediction.id] = key;
+                predictionKeys[prediction.id] = key; // always store Firebase key
                 return true;
             }).catch(error => {
                 console.error('Error saving prediction:', error);
@@ -375,27 +375,27 @@
                 return false;
             });
         }
-    
+        
         function handlePredictionSubmit(e) {
             e.preventDefault();
             const submitBtn = document.getElementById('submit-btn');
             if (!submitBtn) return;
             submitBtn.disabled = true;
             submitBtn.textContent = '发布中...';
-    
+        
             const username = document.getElementById('username')?.value.trim() || '匿名用户';
             const content = document.getElementById('content')?.value.trim();
             const dueDate = document.getElementById('due-date')?.value;
             const category = document.getElementById('category')?.value;
             const confidence = parseInt(document.getElementById('confidence')?.value || 50);
-    
+        
             if (!content || !dueDate) {
                 alert('请填写预测内容和截止日期！');
                 submitBtn.disabled = false;
                 submitBtn.textContent = '🚀 发布到全球';
                 return;
             }
-    
+        
             const answer = prompt('作者叫啥? (请输入正确答案才能发布)');
             if (answer !== '王高远') {
                 alert('答案错误，发布失败！');
@@ -403,7 +403,7 @@
                 submitBtn.textContent = '🚀 发布到全球';
                 return;
             }
-    
+        
             const newPrediction = {
                 id: Date.now().toString(),
                 content, dueDate, category, confidence, username,
@@ -412,30 +412,31 @@
                 likes: [], likesCount: 0,
                 authorVerified: true
             };
-    
+        
+            // Only add to UI after Firebase key exists
             savePrediction(newPrediction).then(success => {
                 if (success) {
-                    if (!allPredictions.some(p => p.id === newPrediction.id)) {
-                        allPredictions.unshift(newPrediction);
-                    }
-                    if (!myPredictions.some(p => p.id === newPrediction.id)) {
-                        myPredictions.unshift(newPrediction);
-                    }
+                    allPredictions.unshift(newPrediction);
+                    myPredictions.unshift(newPrediction);
                     localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
+        
                     e.target.reset();
                     setDefaultDate();
                     document.getElementById('confidence').value = '50';
                     document.getElementById('confidence-value').textContent = '50%';
                     updateStats();
+        
                     if (currentTab === 'feed') displayPredictions();
                     if (currentTab === 'my') displayMyPredictions();
                     switchTab('feed');
+        
                     alert('🎉 预测已成功发布到全球平台！');
                 }
                 submitBtn.disabled = false;
                 submitBtn.textContent = '🚀 发布到全球';
             });
         }
+
     
         function switchTab(tabName) {
             currentTab = tabName;
@@ -532,7 +533,9 @@
                     <div class="actions">
                         ${showPublicActions ? `<button class="like-btn ${isLiked ? 'liked' : ''}" onclick="toggleLike('${pred.id}')">❤️ ${pred.likesCount || 0}</button>` : ''}
                         ${canVerify ? `<button onclick="verifyPrediction('${pred.id}', true)" style="background: var(--success)">✅ 预测成功</button><button onclick="verifyPrediction('${pred.id}', false)" style="background: var(--danger)">❌ 预测失败</button>` : ''}
-                        <button onclick="attemptDelete('${pred.id}', '${pred.userId}')" style="background: #6c757d">🗑️ 删除</button>
+                        <button onclick="attemptDelete('${pred.id}')">🗑️ 删除</button>
+                        <!-- For public/admin delete somewhere -->
+                        <button onclick="attemptDelete('${pred.id}', true)">🗑️ 公共删除</button>
                     </div>
                     ${pred.verified ? `<p style="margin-top: 10px; font-size: 14px; color: #6c757d;"><strong>验证时间:</strong> ${formatDateTime(pred.verifiedAt)}</p>` : ''}
                 </div>
@@ -588,23 +591,39 @@
             }).catch(error => console.error('Error verifying prediction:', error));
         }
     
+        function attemptDelete(predictionId, isPublic = false) {
+            const prediction = allPredictions.find(p => p.id === predictionId);
+            if (!prediction) return alert('找不到预测');
+        
+            // Public deletion requires code
+            if (isPublic) {
+                const code = prompt('请输入管理删除码:');
+                if (code !== 'gawang') return alert('密码错误，删除失败');
+            } else {
+                // Self deletion requires owner
+                if (prediction.userId !== currentUser) {
+                    return alert('你无权删除此预测');
+                }
+            }
+        
+            deletePrediction(predictionId);
+        }
+        
         function deletePrediction(predictionId) {
-            if (!confirm('确定要删除这条预测吗？')) return;
             const key = predictionKeys[predictionId];
             if (!key) {
                 console.error('No Firebase key found for prediction:', predictionId);
-                alert('删除失败：找不到对应的数据库记录。');
-                return;
+                return alert('删除失败：找不到对应的数据库记录');
             }
         
             const dbRef = ref(database, `predictions/${key}`);
             set(dbRef, null).then(() => {
-                // Remove from local arrays
+                // Update local arrays
                 allPredictions = allPredictions.filter(p => p.id !== predictionId);
                 myPredictions = myPredictions.filter(p => p.id !== predictionId);
                 localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
         
-                // Update UI
+                // Refresh UI
                 updateStats();
                 displayPredictions();
                 displayMyPredictions();
@@ -616,20 +635,6 @@
             });
         }
 
-        function attemptDelete(predictionId, ownerId) {
-            const selfOwned = ownerId === currentUser;
-        
-            if (selfOwned) {
-                deletePrediction(predictionId);
-            } else {
-                const code = prompt("请输入删除授权码：");
-                if (code === "gawang") {
-                    deletePrediction(predictionId);
-                } else {
-                    alert("授权码错误，无法删除！");
-                }
-            }
-        }
         
         function formatDate(dateString) {
             const date = new Date(dateString);
