@@ -511,11 +511,32 @@
     
         function createPredictionHTML(pred, showPublicActions) {
             const status = getStatus(pred);
-            const statusText = { 'pending': '未到期', 'due': '今日到期', 'overdue': '已过期', 'verified': pred.result ? '预测成功' : '预测失败' };
-            const statusClass = { 'pending': 'status-pending', 'due': 'status-today', 'overdue': 'status-overdue', 'verified': pred.result ? 'status-success' : 'status-fail' };
-            const categoryIcons = { 'finance': '📈', 'politics': '🏛️', 'sports': '⚽', 'tech': '🚀', 'climate': '🌡️', 'other': '🌟' };
+            const statusText = {
+                'pending': '未到期',
+                'due': '今日到期',
+                'overdue': '已过期',
+                'verified': pred.result ? '预测成功' : '预测失败'
+            };
+            const statusClass = {
+                'pending': 'status-pending',
+                'due': 'status-today',
+                'overdue': 'status-overdue',
+                'verified': pred.result ? 'status-success' : 'status-fail'
+            };
+            const categoryIcons = {
+                'finance': '📈',
+                'politics': '🏛️',
+                'sports': '⚽',
+                'tech': '🚀',
+                'climate': '🌡️',
+                'other': '🌟'
+            };
             const isLiked = pred.likes?.includes(currentUser);
             const canVerify = !pred.verified && ['due', 'overdue'].includes(status) && pred.userId === currentUser;
+            
+            // <-- define canDelete here
+            const canDelete = pred.userId === currentUser && predictionKeys[pred.id];
+        
             return `
                 <div class="prediction-item">
                     <h3>${pred.content}</h3>
@@ -529,13 +550,15 @@
                     <div class="status-tag ${statusClass[status]}">${statusText[status]}</div>
                     <div class="actions">
                         ${showPublicActions ? `<button class="like-btn ${isLiked ? 'liked' : ''}" onclick="toggleLike('${pred.id}')">❤️ ${pred.likesCount || 0}</button>` : ''}
-                        ${canVerify ? `<button onclick="verifyPrediction('${pred.id}', true)" style="background: var(--success)">✅ 预测成功</button><button onclick="verifyPrediction('${pred.id}', false)" style="background: var(--danger)">❌ 预测失败</button>` : ''}
+                        ${canVerify ? `<button onclick="verifyPrediction('${pred.id}', true)" style="background: var(--success)">✅ 预测成功</button>
+                                      <button onclick="verifyPrediction('${pred.id}', false)" style="background: var(--danger)">❌ 预测失败</button>` : ''}
                         ${canDelete ? `<button onclick="attemptDelete('${pred.id}')">🗑️ 删除</button>` : ''}
                     </div>
                     ${pred.verified ? `<p style="margin-top: 10px; font-size: 14px; color: #6c757d;"><strong>验证时间:</strong> ${formatDateTime(pred.verifiedAt)}</p>` : ''}
                 </div>
             `;
         }
+
     
         function toggleLike(predictionId) {
             const prediction = allPredictions.find(p => p.id === predictionId);
