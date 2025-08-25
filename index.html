@@ -421,22 +421,18 @@
             // Only add to UI after Firebase key exists
             savePrediction(newPrediction).then(success => {
                 if (success) {
-                    // At this point, predictionKeys[newPrediction.id] exists
-                    allPredictions.unshift(newPrediction);
-                    myPredictions.unshift(newPrediction);
-                    localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
-            
-                    // Now safe to render
-                    displayPredictions();
-                    displayMyPredictions();
-                    switchTab('feed');
-            
+                    // Don't unshift locally, let Firebase listener handle it
+                    localStorage.setItem('myPredictions', JSON.stringify([...myPredictions, newPrediction]));
+                    e.target.reset();
+                    setDefaultDate();
+                    document.getElementById('confidence').value = '50';
+                    document.getElementById('confidence-value').textContent = '50%';
                     alert('🎉 预测已成功发布到全球平台！');
+                    switchTab('feed');
                 }
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 发布到全球';
             });
-
-
-
         }
 
     
