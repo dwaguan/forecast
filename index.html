@@ -416,25 +416,22 @@
             // Only add to UI after Firebase key exists
             savePrediction(newPrediction).then(success => {
                 if (success) {
+                    // Assign Firebase key is already done in savePrediction()
                     allPredictions.unshift(newPrediction);
                     myPredictions.unshift(newPrediction);
                     localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
-        
-                    e.target.reset();
-                    setDefaultDate();
-                    document.getElementById('confidence').value = '50';
-                    document.getElementById('confidence-value').textContent = '50%';
-                    updateStats();
-        
+            
+                    // Refresh UI AFTER allPredictions updated
                     if (currentTab === 'feed') displayPredictions();
                     if (currentTab === 'my') displayMyPredictions();
                     switchTab('feed');
-        
+            
                     alert('🎉 预测已成功发布到全球平台！');
                 }
                 submitBtn.disabled = false;
                 submitBtn.textContent = '🚀 发布到全球';
             });
+
         }
 
     
@@ -593,21 +590,25 @@
     
         function attemptDelete(predictionId, isPublic = false) {
             const prediction = allPredictions.find(p => p.id === predictionId);
-            if (!prediction) return alert('找不到预测');
         
-            // Public deletion requires code
+            if (!prediction) {
+                // Try checking myPredictions as fallback
+                const fallback = myPredictions.find(p => p.id === predictionId);
+                if (!fallback) return alert('找不到预测');
+                else prediction = fallback;
+            }
+        
             if (isPublic) {
                 const code = prompt('请输入管理删除码:');
                 if (code !== 'gawang') return alert('密码错误，删除失败');
             } else {
-                // Self deletion requires owner
-                if (prediction.userId !== currentUser) {
+                if (prediction.userId !== currentUser)
                     return alert('你无权删除此预测');
-                }
             }
         
             deletePrediction(predictionId);
         }
+
         
         function deletePrediction(predictionId) {
             const key = predictionKeys[predictionId];
