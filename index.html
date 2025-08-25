@@ -532,7 +532,7 @@
                     <div class="actions">
                         ${showPublicActions ? `<button class="like-btn ${isLiked ? 'liked' : ''}" onclick="toggleLike('${pred.id}')">❤️ ${pred.likesCount || 0}</button>` : ''}
                         ${canVerify ? `<button onclick="verifyPrediction('${pred.id}', true)" style="background: var(--success)">✅ 预测成功</button><button onclick="verifyPrediction('${pred.id}', false)" style="background: var(--danger)">❌ 预测失败</button>` : ''}
-                        ${pred.userId === currentUser ? `<button onclick="deletePrediction('${pred.id}')" style="background: #6c757d">🗑️ 删除</button>` : ''}
+                        <button onclick="attemptDelete('${pred.id}', '${pred.userId}')" style="background: #6c757d">🗑️ 删除</button>
                     </div>
                     ${pred.verified ? `<p style="margin-top: 10px; font-size: 14px; color: #6c757d;"><strong>验证时间:</strong> ${formatDateTime(pred.verifiedAt)}</p>` : ''}
                 </div>
@@ -604,7 +604,22 @@
                 }).catch(error => console.error('Error deleting prediction:', error));
             }
         }
-    
+        
+        function attemptDelete(predictionId, ownerId) {
+            const selfOwned = ownerId === currentUser;
+        
+            if (selfOwned) {
+                deletePrediction(predictionId);
+            } else {
+                const code = prompt("请输入删除授权码：");
+                if (code === "gawang") {
+                    deletePrediction(predictionId);
+                } else {
+                    alert("授权码错误，无法删除！");
+                }
+            }
+        }
+        
         function formatDate(dateString) {
             const date = new Date(dateString);
             return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
@@ -624,6 +639,7 @@
         window.toggleLike = toggleLike;
         window.verifyPrediction = verifyPrediction;
         window.deletePrediction = deletePrediction;
+        window.attemptDelete = attemptDelete;
     </script>
 </body>
 </html>
