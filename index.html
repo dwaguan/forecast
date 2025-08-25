@@ -352,6 +352,10 @@
                     allPredictions.push(pred);
                     predictionKeys[pred.id] = key;
                 });
+            
+                // CLEANUP LOCAL GHOSTS
+                cleanupLocalPredictions();
+            
                 allPredictions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                 document.getElementById('global-predictions').classList.remove('loading');
                 updateStats();
@@ -655,6 +659,18 @@
                 console.error('Error deleting prediction:', error);
                 alert('删除失败，请检查网络或权限！');
             });
+        }
+
+        function cleanupLocalPredictions() {
+            allPredictions = allPredictions.filter(pred => predictionKeys[pred.id]);
+            myPredictions = myPredictions.filter(pred => predictionKeys[pred.id]);
+        
+            // Update localStorage too
+            localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
+        
+            // Re-render
+            if (currentTab === 'feed') displayPredictions();
+            if (currentTab === 'my') displayMyPredictions();
         }
 
         
