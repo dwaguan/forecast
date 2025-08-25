@@ -416,20 +416,20 @@
             // Only add to UI after Firebase key exists
             savePrediction(newPrediction).then(success => {
                 if (success) {
-                    // Now the key exists, safe to update arrays and render
+                    // At this point, predictionKeys[newPrediction.id] exists
                     allPredictions.unshift(newPrediction);
                     myPredictions.unshift(newPrediction);
                     localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
             
-                    if (currentTab === 'feed') displayPredictions();
-                    if (currentTab === 'my') displayMyPredictions();
+                    // Now safe to render
+                    displayPredictions();
+                    displayMyPredictions();
                     switchTab('feed');
             
                     alert('🎉 预测已成功发布到全球平台！');
                 }
-                submitBtn.disabled = false;
-                submitBtn.textContent = '🚀 发布到全球';
             });
+
 
 
         }
@@ -530,8 +530,7 @@
                     <div class="actions">
                         ${showPublicActions ? `<button class="like-btn ${isLiked ? 'liked' : ''}" onclick="toggleLike('${pred.id}')">❤️ ${pred.likesCount || 0}</button>` : ''}
                         ${canVerify ? `<button onclick="verifyPrediction('${pred.id}', true)" style="background: var(--success)">✅ 预测成功</button><button onclick="verifyPrediction('${pred.id}', false)" style="background: var(--danger)">❌ 预测失败</button>` : ''}
-                        // Only show delete button if Firebase key exists
-                        ${(pred.userId === currentUser && predictionKeys[pred.id]) ? `<button onclick="attemptDelete('${pred.id}')">🗑️ 删除</button>` : ''}
+                        ${canDelete ? `<button onclick="attemptDelete('${pred.id}')">🗑️ 删除</button>` : ''}
                     </div>
                     ${pred.verified ? `<p style="margin-top: 10px; font-size: 14px; color: #6c757d;"><strong>验证时间:</strong> ${formatDateTime(pred.verifiedAt)}</p>` : ''}
                 </div>
