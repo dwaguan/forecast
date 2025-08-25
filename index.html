@@ -591,20 +591,31 @@
         function deletePrediction(predictionId) {
             if (!confirm('确定要删除这条预测吗？')) return;
             const key = predictionKeys[predictionId];
-            if (key) {
-                const dbRef = ref(database, `predictions/${key}`);
-                set(dbRef, null).then(() => {
-                    const index = allPredictions.findIndex(p => p.id === predictionId);
-                    if (index !== -1) allPredictions.splice(index, 1);
-                    myPredictions = myPredictions.filter(p => p.id !== predictionId);
-                    localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
-                    updateStats();
-                    displayPredictions();
-                    displayMyPredictions();
-                }).catch(error => console.error('Error deleting prediction:', error));
+            if (!key) {
+                console.error('No Firebase key found for prediction:', predictionId);
+                alert('删除失败：找不到对应的数据库记录。');
+                return;
             }
-        }
         
+            const dbRef = ref(database, `predictions/${key}`);
+            set(dbRef, null).then(() => {
+                // Remove from local arrays
+                allPredictions = allPredictions.filter(p => p.id !== predictionId);
+                myPredictions = myPredictions.filter(p => p.id !== predictionId);
+                localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
+        
+                // Update UI
+                updateStats();
+                displayPredictions();
+                displayMyPredictions();
+        
+                alert('✅ 预测已删除');
+            }).catch(error => {
+                console.error('Error deleting prediction:', error);
+                alert('删除失败，请检查网络或权限！');
+            });
+        }
+
         function attemptDelete(predictionId, ownerId) {
             const selfOwned = ownerId === currentUser;
         
