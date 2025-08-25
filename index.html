@@ -295,12 +295,11 @@
         // Global state
         let allPredictions = [];
         let predictionKeys = {};
-        let myPredictions = JSON.parse(localStorage.getItem('myPredictions')) || [];
+        let myPredictions = [];
         let currentUser = localStorage.getItem('forecast-user-id') || ('user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9));
         let currentTab = 'feed';
     
         document.addEventListener('DOMContentLoaded', () => {
-            localStorage.setItem('forecast-user-id', currentUser);
             setupEventListeners();
             loadPredictions();
             switchTab('feed');
@@ -421,8 +420,6 @@
             // Only add to UI after Firebase key exists
             savePrediction(newPrediction).then(success => {
                 if (success) {
-                    // Don't unshift locally, let Firebase listener handle it
-                    localStorage.setItem('myPredictions', JSON.stringify([...myPredictions, newPrediction]));
                     e.target.reset();
                     setDefaultDate();
                     document.getElementById('confidence').value = '50';
@@ -473,13 +470,16 @@
         function displayMyPredictions() {
             const container = document.getElementById('my-predictions');
             if (!container) return;
-            const myPreds = myPredictions.filter(p => p.userId === currentUser);
+        
+            const myPreds = allPredictions.filter(p => p.userId === currentUser);
+        
             if (myPreds.length === 0) {
                 container.innerHTML = '📝 你还没有发布任何预测';
                 return;
             }
             container.innerHTML = myPreds.map(pred => createPredictionHTML(pred, false)).join('');
         }
+
     
         function filterAndSortPredictions(predictions) {
             const categoryFilter = document.getElementById('category-filter')?.value || '';
@@ -602,7 +602,6 @@
                 const index = allPredictions.findIndex(p => p.id === predictionId);
                 if (index !== -1) allPredictions[index] = prediction;
                 myPredictions = myPredictions.map(p => p.id === predictionId ? prediction : p);
-                localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
                 updateStats();
                 displayPredictions();
                 displayMyPredictions();
@@ -644,7 +643,6 @@
                 // Update local arrays
                 allPredictions = allPredictions.filter(p => p.id !== predictionId);
                 myPredictions = myPredictions.filter(p => p.id !== predictionId);
-                localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
         
                 // Refresh UI
                 updateStats();
@@ -661,10 +659,7 @@
         function cleanupLocalPredictions() {
             allPredictions = allPredictions.filter(pred => predictionKeys[pred.id]);
             myPredictions = myPredictions.filter(pred => predictionKeys[pred.id]);
-        
-            // Update localStorage too
-            localStorage.setItem('myPredictions', JSON.stringify(myPredictions));
-        
+                
             // Re-render
             if (currentTab === 'feed') displayPredictions();
             if (currentTab === 'my') displayMyPredictions();
